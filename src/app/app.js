@@ -39,7 +39,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ? API to check connection to servers (health api)
+// ? API to check connection (health api)
 app.get("/", (req, res, next) => {
   try {
     res.status(200).json({ messge: "Connection established" });
