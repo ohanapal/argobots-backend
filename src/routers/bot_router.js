@@ -74,5 +74,5 @@ router.post(
   isPermitted(serviceName.BOT_SERVICE, apiEnum.DELETE_FILE),
   botController.deleteFileFromBotByID
 );
-
+router.get("/get-bot-outside/:id", botController.getBotByIDFromOutside);
 module.exports = router;
