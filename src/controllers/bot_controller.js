@@ -13,14 +13,16 @@ const {
   addFileToBot,
   deleteFileFromBot,
   countBot,
+  addFileToBotExternalService
 } = require("../services/bot_services");
-const { checkMemory } = require("../services/file_services");
+const { addFile, checkMemory } = require("../services/file_services");
 const {
   findCompanyByObject,
   findCompanyById,
 } = require("../services/company_services");
 const { createError } = require("../common/error");
 const { userType } = require("../utils/enums");
+const Company = require("../models/company")
 
 // * Function to create a bot/assistant
 const create = async (req, res, next) => {
@@ -331,6 +333,69 @@ const getBotByIDFromOutside = async(req, res, next)=>{
     next(err);
   }
 }
+
+// * Function to upload a file to the bot by ID for external service
+const uploadFileToBotExternalService = async (req, res, next) => {
+  const { name, size, file_id, bot_id } = req.body;
+  // console.log({name, size, file_id, bot_id})
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    
+    // Step 1: Find the bot by its ID
+    const bot = await findBotById(bot_id, session);
+    if (!bot) {
+      await session.abortTransaction();
+      return next(createError(400, "Bot not found"));
+    }
+    // console.log("bot", bot)
+    
+    const company_id = bot?.company_id;
+    if (!company_id) {
+      await session.abortTransaction();
+      return next(createError(400, "Company ID not found"));
+    }
+
+    const company = await findCompanyById(company_id, session);
+    if (!company) {
+      await session.abortTransaction();
+      return next(createError(400, "Company not found"));
+    }
+
+    const package = company.package;
+
+    if (!package) {
+      await session.abortTransaction();
+      return next(createError(400, "Package not found"));
+    }
+
+    // Step 2: Create file object and add to the bot's service
+    const fileObj = {
+      name,
+      size,
+      file_id,
+      company_id: company._id,
+      bot_id,
+    };
+    const newFile = await addFile(fileObj, session);
+    if (!newFile) {
+      await session.abortTransaction();
+      return next(createError(400, "Failed to add file to the bot"));
+    }
+
+    // Commit transaction if everything is successful
+    await session.commitTransaction();
+    res.status(200).json({ message: "File added successfully", file: newFile });
+  } catch (err) {
+    // Rollback transaction if any error occurs
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    session.endSession();
+  }
+};
+
+
 module.exports = {
   create,
   getAll,
@@ -340,5 +405,6 @@ module.exports = {
   deleteBotByID,
   uploadFileToBot,
   deleteFileFromBotByID,
-  getBotByIDFromOutside
+  getBotByIDFromOutside,
+  uploadFileToBotExternalService
 };

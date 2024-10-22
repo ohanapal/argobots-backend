@@ -411,5 +411,5 @@ module.exports = {
   deleteBotById,
   addFileToBot,
   deleteFileFromBot,
-  countBot,
+  countBot
 };
