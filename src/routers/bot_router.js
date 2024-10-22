@@ -81,5 +81,9 @@ router.post(
   upload.single("file"),
   botController.uploadFileToBotExternalService
 );
+router.post(
+  "/delete-external",
+  botController.deleteFileFromBotByIDExternalService
+);
 router.get("/get-bot-outside/:id", botController.getBotByID);
 module.exports = router;

@@ -13,16 +13,21 @@ const {
   addFileToBot,
   deleteFileFromBot,
   countBot,
-  addFileToBotExternalService
 } = require("../services/bot_services");
-const { addFile, checkMemory } = require("../services/file_services");
+const {
+  addFile,
+  checkMemory,
+  deleteFile,
+  getFile,
+} = require("../services/file_services");
 const {
   findCompanyByObject,
   findCompanyById,
 } = require("../services/company_services");
 const { createError } = require("../common/error");
 const { userType } = require("../utils/enums");
-const Company = require("../models/company")
+const Company = require("../models/company");
+const Files = require("../models/file");
 
 // * Function to create a bot/assistant
 const create = async (req, res, next) => {
@@ -62,8 +67,10 @@ const create = async (req, res, next) => {
       return next(createError(400, "Package not found"));
     }
     const botCount = await countBot(company._id, session);
-    if (botCount >= Number(package['bot_limit'])) {
-      return next(createError(400, "Bot limit exceeded, please upgrade your package"));
+    if (botCount >= Number(package["bot_limit"])) {
+      return next(
+        createError(400, "Bot limit exceeded, please upgrade your package")
+      );
     }
     const botObj = {
       user_id: id,
@@ -318,7 +325,7 @@ const deleteFileFromBotByID = async (req, res, next) => {
   }
 };
 
-const getBotByIDFromOutside = async(req, res, next)=>{
+const getBotByIDFromOutside = async (req, res, next) => {
   try {
     session.startTransaction();
     const id = req?.params?.id;
@@ -332,7 +339,7 @@ const getBotByIDFromOutside = async(req, res, next)=>{
     session.endSession();
     next(err);
   }
-}
+};
 
 // * Function to upload a file to the bot by ID for external service
 const uploadFileToBotExternalService = async (req, res, next) => {
@@ -341,7 +348,7 @@ const uploadFileToBotExternalService = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    
+
     // Step 1: Find the bot by its ID
     const bot = await findBotById(bot_id, session);
     if (!bot) {
@@ -349,7 +356,7 @@ const uploadFileToBotExternalService = async (req, res, next) => {
       return next(createError(400, "Bot not found"));
     }
     // console.log("bot", bot)
-    
+
     const company_id = bot?.company_id;
     if (!company_id) {
       await session.abortTransaction();
@@ -395,6 +402,50 @@ const uploadFileToBotExternalService = async (req, res, next) => {
   }
 };
 
+// * Function to delete a file from Bot by ID
+const deleteFileFromBotByIDExternalService = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const bot_id = req?.body?.bot_id;
+    const file_id = req?.body?.file_id;
+
+    // Check if bot_id and file_id are provided
+    if (!bot_id || !file_id) {
+      return next(createError(400, "Both bot_id and file_id need to be provided"));
+    }
+
+    // Validate bot existence
+    const bot = await findBotById(bot_id, session);
+    if (!bot) {
+      await session.abortTransaction();
+      return next(createError(400, "Bot not found"));
+    }
+
+    // Validate file existence using the correct field
+    const file = await Files.findOne({ file_id: file_id }, null, { session });
+    if (!file) {
+      await session.abortTransaction();
+      return next(createError(400, "File not found"));
+    }
+
+    // Log the found entities
+    console.log("bot", bot);
+    console.log("file", file);
+
+    // Perform deletion
+    const message = await Files.deleteOne({ file_id: file_id }, { session });
+    
+    await session.commitTransaction();
+    session.endSession();
+    res.status(200).json(message);
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    next(err);
+  }
+};
+
 
 module.exports = {
   create,
@@ -406,5 +457,6 @@ module.exports = {
   uploadFileToBot,
   deleteFileFromBotByID,
   getBotByIDFromOutside,
-  uploadFileToBotExternalService
+  uploadFileToBotExternalService,
+  deleteFileFromBotByIDExternalService,
 };
