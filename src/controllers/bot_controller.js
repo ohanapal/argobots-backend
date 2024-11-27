@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require("fs");
+const Files = require("../models/file");
 const { validationResult } = require("express-validator");
 const {
   createBotInstructions,
@@ -14,20 +15,13 @@ const {
   deleteFileFromBot,
   countBot,
 } = require("../services/bot_services");
-const {
-  addFile,
-  checkMemory,
-  deleteFile,
-  getFile,
-} = require("../services/file_services");
+const { checkMemory } = require("../services/file_services");
 const {
   findCompanyByObject,
   findCompanyById,
 } = require("../services/company_services");
 const { createError } = require("../common/error");
 const { userType } = require("../utils/enums");
-const Company = require("../models/company");
-const Files = require("../models/file");
 
 // * Function to create a bot/assistant
 const create = async (req, res, next) => {
@@ -67,10 +61,8 @@ const create = async (req, res, next) => {
       return next(createError(400, "Package not found"));
     }
     const botCount = await countBot(company._id, session);
-    if (botCount >= Number(package["bot_limit"])) {
-      return next(
-        createError(400, "Bot limit exceeded, please upgrade your package")
-      );
+    if (botCount >= Number(package['bot_limit'])) {
+      return next(createError(400, "Bot limit exceeded, please upgrade your package"));
     }
     const botObj = {
       user_id: id,
@@ -187,7 +179,7 @@ const updateBotByID = async (req, res, next) => {
       }
       if (
         req.user.type === userType.USER &&
-        company?._id.toString() !== req.user.company_id.toString()
+        company?._id.toString() !== req.user.company.toString()
       ) {
         throw createError(400, "Not on your authorization");
       }
@@ -240,7 +232,7 @@ const deleteBotByID = async (req, res, next) => {
     }
     if (
       req.user.type === userType.USER &&
-      company?._id.toString() !== req.user.company_id.toString()
+      company?._id.toString() !== req.user.company.toString()
     ) {
       throw createError(400, "Not on your authorization");
     }
@@ -325,21 +317,6 @@ const deleteFileFromBotByID = async (req, res, next) => {
   }
 };
 
-const getBotByIDFromOutside = async (req, res, next) => {
-  try {
-    session.startTransaction();
-    const id = req?.params?.id;
-    const bot = await findBotById(id, session);
-    const usedStorage = await checkMemory(bot.company_id, 0, session);
-    await session.commitTransaction();
-    session.endSession();
-    res.status(200).json({ data: bot, usedStorage });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    next(err);
-  }
-};
 
 // * Function to upload a file to the bot by ID for external service
 const uploadFileToBotExternalService = async (req, res, next) => {
@@ -402,7 +379,6 @@ const uploadFileToBotExternalService = async (req, res, next) => {
   }
 };
 
-// * Function to delete a file from Bot by ID
 const deleteFileFromBotByIDExternalService = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
@@ -446,7 +422,6 @@ const deleteFileFromBotByIDExternalService = async (req, res, next) => {
   }
 };
 
-
 module.exports = {
   create,
   getAll,
@@ -456,7 +431,6 @@ module.exports = {
   deleteBotByID,
   uploadFileToBot,
   deleteFileFromBotByID,
-  getBotByIDFromOutside,
   uploadFileToBotExternalService,
   deleteFileFromBotByIDExternalService,
 };

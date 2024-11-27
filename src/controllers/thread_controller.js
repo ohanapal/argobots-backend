@@ -10,6 +10,9 @@ const {
   addFileToThread,
   deleteFileFromThread,
   stopRun,
+  getThreadsUsingQueryString,
+  updateThreadById,
+  runChat,
 } = require("../services/thread_services");
 const { createError } = require("../common/error");
 
@@ -24,11 +27,13 @@ const getThreadByID = async (req, res, next) => {
       session.endSession();
       return next(createError(400, "Thread ID not provided"));
     }
-    if (req.body?.thread_id === 'new') {
+    if (req.body?.thread_id === "new") {
       if (!req?.body?.bot_id) {
         await session.abortTransaction();
         session.endSession();
-        return next(createError(400, "Assistant ID not provided for first time"));
+        return next(
+          createError(400, "Assistant ID not provided for first time")
+        );
       }
       query.bot_id = req?.body?.bot_id;
       if (req?.body?.user_id) {
@@ -37,12 +42,41 @@ const getThreadByID = async (req, res, next) => {
       if (req?.body?.unique_id) {
         query.unique_id = req.body?.unique_id;
       }
+      if (req?.body?.location) {
+        const location = {};
+        location.address = req?.body?.location?.address;
+        location.lat = req?.body?.location?.lat;
+        location.long = req?.body?.location?.long;
+        query.location = location;
+      }
+      query.name = req?.body?.name || "";
+      if (req?.body?.source) {
+        query.source = req?.body?.source;
+      }
       const thread = await createAThread(query, session);
       await session.commitTransaction();
       session.endSession();
       res.status(200).json({ thread });
     } else {
-      const thread = await getThreadById(req?.body?.thread_id, session);
+      let thread = null;
+      if (req?.body?.updateSeen) {
+        thread = await updateThreadById(
+          req?.body?.thread_id,
+          { last_seen: new Date() },
+          session
+        );
+      } else {
+        thread = await getThreadById(req?.body?.thread_id, session);
+      }
+      if (req?.body?.summary) {
+        thread = await updateThreadById(
+          req?.body?.thread_id,
+          { summary: { text: req?.body?.summary, last_update: new Date() } },
+          session
+        );
+      } else {
+        thread = await getThreadById(req?.body?.thread_id, session);
+      }
       await session.commitTransaction();
       session.endSession();
       res.status(200).json({ thread });
@@ -90,7 +124,7 @@ const runThreadByID = async (req, res, next) => {
       session.endSession();
       return next(createError(400, "Message not provided."));
     }
-    
+
     res.sseSetup();
     const eventEmitter = new EventEmitter();
     let streamClosed = false;
@@ -105,7 +139,7 @@ const runThreadByID = async (req, res, next) => {
       } else if (data.event === "thread.message.delta") {
         res.sseSend({
           id: run_id,
-          chunk: data.data.delta.content[0].text.value
+          chunk: data.data.delta.content[0].text.value,
         });
       } else if (data.event === "thread.run.completed") {
         res.sseStop();
@@ -116,8 +150,13 @@ const runThreadByID = async (req, res, next) => {
       streamClosed = true;
       eventEmitter.removeAllListeners("event");
     });
-    
-    const result = await runThreadById(req?.body?.thread_id, req?.body?.message, eventEmitter, session);
+
+    const result = await runThreadById(
+      req?.body?.thread_id,
+      req?.body?.message,
+      eventEmitter,
+      session
+    );
     await session.commitTransaction();
     session.endSession();
   } catch (err) {
@@ -172,10 +211,7 @@ const uploadFileToThread = async (req, res, next) => {
       session.endSession();
       return next(createError(400, "env for file location is missing"));
     }
-    const fullPath = path.join(
-      fileLocation,
-      req.file.filename
-    );
+    const fullPath = path.join(fileLocation, req.file.filename);
     const thread_id = req?.body?.thread_id;
     if (!thread_id) {
       await session.abortTransaction();
@@ -204,7 +240,9 @@ const deleteFileFromThreadByID = async (req, res, next) => {
     if (!thread_id || !file_id) {
       await session.abortTransaction();
       session.endSession();
-      return next(createError(400, "Both thread_id and file_id need to be provided"));
+      return next(
+        createError(400, "Both thread_id and file_id need to be provided")
+      );
     }
     const message = await deleteFileFromThread(thread_id, file_id, session);
     await session.commitTransaction();
@@ -217,6 +255,74 @@ const deleteFileFromThreadByID = async (req, res, next) => {
   }
 };
 
+// * Function to get all the threads using querystring
+const getAllThread = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const result = await getThreadsUsingQueryString(req, session);
+    if (result) {
+      await session.commitTransaction();
+      session.endSession();
+      res.status(200).json(result);
+    } else {
+      await session.abortTransaction();
+      session.endSession();
+      return next(createError(404, "Thread not found"));
+    }
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    next(err);
+  }
+};
+
+// * Function to update a thread by ID
+const updateThreadByID = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const id = req?.params?.id;
+    if (!id) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(createError(400, "Id not provided"));
+    }
+    if (req?.body) {
+      const thread = await updateThreadById(id, req.body, session);
+      await session.commitTransaction();
+      session.endSession();
+      res.status(200).json(thread);
+    } else {
+      await session.abortTransaction();
+      session.endSession();
+      return next(createError(400, "No body provided"));
+    }
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    next(err);
+  }
+};
+
+// * Function to run chat completion
+const runChatCompletion = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    const text = req?.body?.text;
+    if (!text) {
+      return next(createError(400, "Text prompt not provided"));
+    }
+    const message = await runChat(text);
+    if (!message) {
+      return next(createError(400, "No response created"));
+    }
+    res.status(200).json({ message });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getThreadByID,
   getMessageListByID,
@@ -224,4 +330,7 @@ module.exports = {
   uploadFileToThread,
   deleteFileFromThreadByID,
   stopRunById,
-}
+  getAllThread,
+  updateThreadByID,
+  runChatCompletion,
+};

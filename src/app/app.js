@@ -39,7 +39,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ? API to check connection (health api)
+// ? API to check connection to servers (health api)
 app.get("/", (req, res, next) => {
   try {
     res.status(200).json({ messge: "Connection established" });
@@ -97,8 +97,14 @@ app.use('/faqs', require('../routers/faq_router'));
 // ~ Router for links
 app.use('/links', require('../routers/link_router'));
 
+// ~ Router for images
+app.use('/images', require('../routers/image_router'));
+
 // ~ Router for templates
 app.use('/templates', require('../routers/template_router'));
+
+// ~ Router for dashboard
+app.use('/dashboards', require('../routers/dashboard_router'));
 
 // * GLobal error handle middleware
 app.use((err, req, res, next) => {

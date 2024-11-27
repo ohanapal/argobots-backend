@@ -2,26 +2,19 @@ const {
   totalInformationAnalyticsService,totalIncomeService,
   searchEntitiesServices
 } = require("../services/dashboard_services");
-const mongoose = require("mongoose");
+const { createError } = require("../common/error");
+const { userType } = require("../utils/enums")
 
 const totalInformationAnalyticsController = async (req, res, next) => {
-  const session = await mongoose.startSession();
   try {
-    session.startTransaction();
+    if (req.user.type === userType.RESELLER) {
+      req.query.reseller_id = req.user.id;
+    }
+    const data = await totalInformationAnalyticsService(req.query);
 
-    // Get the filter from the request params
-    const { filter } = req.query;
-    
-    const data = await totalInformationAnalyticsService(filter, session);
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(201).json(data);
+    res.status(200).json(data);
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    next(err);
+    next(createError(404, err.message));
   }
 };
 
@@ -29,17 +22,17 @@ const totalIncomeController = async (req, res, next) => {
   try {
     const totalIncome = await totalIncomeService();
     res.status(200).json({ totalIncome });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    next(createError(404, err.message));
   }
 }
 
-const dashboardSearchController = async (req, res) => {
+const dashboardSearchController = async (req, res, next) => {
   try {
     const { name } = req.query;
 
     if (!name) {
-      return res.status(400).json({ message: 'Query parameter is required' });
+      return next(createError(400, "Query parameter is required"));
     }
 
     // Call the service to perform the search
@@ -47,8 +40,8 @@ const dashboardSearchController = async (req, res) => {
 
     // Return the unified results
     res.status(200).json(results);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+  } catch (err) {
+    next(createError(404, err.message));
   }
 };
 

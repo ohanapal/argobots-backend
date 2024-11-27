@@ -158,7 +158,21 @@ const getMessagesOfThread = async (thread_id) => {
   }
 };
 
-// ^ Function to run a thread
+// ^ Function to run a thread chat completion
+const runChatCompletion = async (message, role='system') => {
+  try {
+    const model = process.env.INTERNAL_MODEL || 'gpt-4o-mini';
+    const completion = await openai.chat.completions.create({
+      messages: [{ role, content: message }],
+      model,
+    });
+    return completion;
+  } catch (err) {
+      throw err;
+  }
+};
+
+// ^ Function to run a thread stream
 const runThread = async (assistant_id, thread_id, mainPrompt, eventEmitter) => {
   try {
     const message = await openai.beta.threads.messages.create(
@@ -292,7 +306,7 @@ const createAudioFromText = async (message, speechFile) => {
   try {
     const audio = await openai.audio.speech.create({
       model: "tts-1",
-      voice: "alloy",
+      voice: "echo",
       input: message,
     });
     const buffer = Buffer.from(await audio.arrayBuffer());
@@ -321,6 +335,7 @@ module.exports = {
   translateAudio,
   createAudioFromText,
   stopRunThread,
+  runChatCompletion,
 };
 
 // * Here is a template for the tools

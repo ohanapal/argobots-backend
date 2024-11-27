@@ -49,6 +49,10 @@ const botSchema = mongoose.Schema(
       type: String,
       default: `${process.env.S3_BUCKET_URL}/dbg1.jpeg`,
     },
+    cover_image: {
+      type: String,
+      default: `${process.env.S3_BUCKET_URL}/dbg1.jpeg`,
+    },
     description: {
       type: String,
       default: '',
@@ -65,29 +69,58 @@ const botSchema = mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    primary_color: {
-      type: String,
-      default: '#044088',
-    },
-    secondary_color: {
-      type: String,
-      default: '#050260',
-    },
-    font_color: {
-      type: String,
-      default: '#ffffff',
-    },
-    primary_color_dark: {
-      type: String,
-      default: '#044088',
-    },
-    secondary_color_dark: {
-      type: String,
-      default: '#050260',
-    },
-    font_color_dark: {
-      type: String,
-      default: '#ffffff',
+    color_palette: {
+      type: {
+        primary_color: {
+          type: String,
+          default: '#044088',
+        },
+        secondary_color: {
+          type: String,
+          default: '#050260',
+        },
+        primary_font_color: {
+          type: String,
+          default: '#000000',
+        },
+        secondary_font_color: {
+          type: String,
+          default: '#000000',
+        },
+        primary_color_dark: {
+          type: String,
+          default: '#044088',
+        },
+        secondary_color_dark: {
+          type: String,
+          default: '#050260',
+        },
+        primary_font_color_dark: {
+          type: String,
+          default: '#ffffff',
+        },
+        secondary_font_color_dark: {
+          type: String,
+          default: '#ffffff',
+        },
+        gradient: {
+          type: [
+            {
+              type: String,
+            }
+          ],
+          default: [],
+        },
+        gradient_dark: {
+          type: [
+            {
+              type: String,
+            }
+          ],
+          default: [],
+        },
+      },
+      default: null
     },
     model: {
       type: String,
@@ -114,6 +147,10 @@ const botSchema = mongoose.Schema(
       default: 0.5,
     },
     unique_id: {
+      type: String,
+      default: "",
+    },
+    welcome_message: {
       type: String,
       default: "",
     },
@@ -186,6 +223,18 @@ const botSchema = mongoose.Schema(
     sounds_like: {
       type: String,
       default: "",
+    },
+    cover_video_url: {
+      type: String,
+      default: "",
+    },
+    autoplay_response: {
+      type: Boolean,
+      default: false,
+    },
+    show_start: {
+      type: Boolean,
+      default: false,
     },
   },
   {

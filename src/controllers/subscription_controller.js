@@ -8,11 +8,14 @@ const {
   handleWebhookEvent,
   cancelStripeSubscriptionService
 } = require("../services/subscription_services");
+const { findUserById, updateUserById } = require("../services/user_services");
 const mongoose = require("mongoose");
 const { createError } = require("../common/error");
 const { findPackageById } = require("../services/package_services");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { userType } = require("../utils/enums");
+const { findCompanyById, findCompanyByObject, updateCompanyById } = require("../services/company_services");
+const Company = require("../models/company");
 
 
 const getAllPrice = async (req, res, next) => {
@@ -41,21 +44,38 @@ const createStripeSubscription = async (req, res, next) => {
       session.endSession();
       return next(createError(400, "price id, Company id and package_id must be provided"));
     }
+    const company = await findCompanyById(company_id, session);
+    if (!company) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(createError(404, "Company not found"));
+    }
     const package = await findPackageById(package_id, session);
     if (Number(package.price.monthly.price) === 0) {
-      if (!req?.body?.user_id) {
-        return next(
-          createError(400, "user_id must be provided for free package")
-        );
-      }
       const today = new Date();
       const subscriptionInfo = await saveSubscriptionInfoService(
-        req?.body?.user_id,
+        company_id,
         package_id,
         session,
         today,
         today.setFullYear(today.getFullYear() + 100)
       );
+      const updateUser = await updateUserById(
+        company.user_id.toString(),
+        { active_subscription: null },
+        session
+      );
+      const updateCompany = await Company.findByIdAndUpdate(company_id, {
+        price_id: price_id
+      }, {
+        new: true,
+        session,
+      }).lean();
+      if (!updateCompany) {
+        await session.abortTransaction();
+        session.endSession();
+        return next(createError(500, "Failed to update company info"));
+      }
       await session.commitTransaction();
       session.endSession();
       return res
@@ -128,23 +148,25 @@ const cancelStripeSubscription = async (req, res, next) => {
   try {
     session.startTransaction();
     const { id } = req.user;
-    const cancelStripeSession = await cancelStripeSubscriptionService(id,session);
+    
+    // Only pass the session to the service without transaction handling inside the service
+    const cancelStripeSession = await cancelStripeSubscriptionService(id, session);
     if (!cancelStripeSession) {
       await session.abortTransaction();
       session.endSession();
       return next(createError(500, "Failed to create stripe subscription"));
     }
+
     await session.commitTransaction();
     session.endSession();
-    res
-      .status(200)
-      .json({ message: "generate checkout URL successfully", stripeSession });
+    res.status(200).json({ message: "Subscription cancelled successfully", cancelStripeSession });
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
     next(err);
   }
 };
+
 
 const getSubscriptionInfo = async (req, res, next) => {
   try {
@@ -172,9 +194,9 @@ const saveSubscriptonInfo = async (req, res, next) => {
 
   try {
     session.startTransaction();
-    const { user_id, package_id, start_period, end_period } = req.body;
-    if (!user_id) {
-      return next(createError(400, "user id must be provided"));
+    const { company_id, package_id, start_period, end_period } = req.body;
+    if (!company_id) {
+      return next(createError(400, "company id must be provided"));
     } else if (!package_id) {
       return next(createError(400, "package id must be provided"));
     } else if (!start_period || !end_period) {
@@ -183,7 +205,7 @@ const saveSubscriptonInfo = async (req, res, next) => {
       );
     }
     const subscriptionInfo = await saveSubscriptionInfoService(
-      user_id,
+      company_id,
       package_id,
       session,
       start_period,

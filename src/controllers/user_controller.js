@@ -94,16 +94,21 @@ const requestCreate = async (req, res, next) => {
       // const user = await createUser(userObj, req?.body?.password, session);
       const link = generateVerificationLink(userObj);
       if (link) {
-        const emailText = `Hi there!
+        const emailText = `Hi ${userObj.name}!
 
-        Welcome to ${process.env.NAME}. You've just signed up for a new account.
-        Please click the link below to verify your email:
+Welcome to ${process.env.EMAIL_NAME}. Where all your AI ideas can come to life on our no code canvas.
 
-        ${link}
+Are you ready to get started with your new account?
+
+Click the link below to verify your account and get started with BLDR:
+
+${link}
+
+We are here to support you on your journey to AI enhanced productivity.
         
-        Regards,
-        The ${process.env.NAME} Team`;
-        const emailSubject = `Verify your account at ${process.env.NAME}`;
+Regards,
+The ${process.env.NAME} Team`;
+        const emailSubject = `Verify your ${process.env.EMAIL_NAME} account`;
         const emailStatus = await SendEmailUtils(
           req?.body?.email,
           emailText,
@@ -176,6 +181,9 @@ const getUserByID = async (req, res, next) => {
     session.startTransaction();
     const id = req?.params?.id;
     const user = await findUserById(id, session);
+    if (id === req.user.id) {
+      return res.status(200).json({ user });
+    }
     const company = await findCompanyByObject({user_id: req?.user?.id}, session);
     if (
       req.user.type === userType.RESELLER &&
@@ -233,7 +241,7 @@ const updateUserByID = async (req, res, next) => {
       }
       if (
         req.user.type === userType.USER &&
-        company?._id.toString() !== req.user.company_id.toString()
+        company?._id.toString() !== req.user.company.toString()
       ) {
         throw createError(400, "Not on your authorization");
       }
@@ -307,7 +315,7 @@ const deleteUserByID = async (req, res, next) => {
       }
       if (
         req.user.type === userType.USER &&
-        company?._id.toString() !== req.user.company_id.toString()
+        company?._id.toString() !== req.user.company.toString()
       ) {
         throw createError(400, "Not on your authorization");
       }
@@ -339,7 +347,7 @@ const changeUserRoleByID = async (req, res, next) => {
       return next(createError(400, "User id and role name must be provided"));
     }
     const oldUser = await findUserById(user_id, session);
-    const company = await findCompanyById(oldUser.company_id.toString(), session);
+    const company = await findCompanyByObject({ user_id }, session);
     if (
       req.user.type === userType.RESELLER &&
       company?.reseller_id.toString() !== req.user.id.toString()
@@ -354,7 +362,7 @@ const changeUserRoleByID = async (req, res, next) => {
     }
     if (
       req.user.type === userType.USER &&
-      company?._id.toString() !== req.user.company_id.toString()
+      company?._id.toString() !== req.user.company.toString()
     ) {
       throw createError(400, "Not on your authorization");
     }

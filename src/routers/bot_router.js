@@ -75,7 +75,6 @@ router.post(
   botController.deleteFileFromBotByID
 );
 
-// ? API to upload a file to a bot
 router.post(
   "/upload-external",
   upload.single("file"),
@@ -86,4 +85,5 @@ router.post(
   botController.deleteFileFromBotByIDExternalService
 );
 router.get("/get-bot-outside/:id", botController.getBotByID);
+
 module.exports = router;
