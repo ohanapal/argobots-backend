@@ -115,7 +115,7 @@ const getThreadsUsingQueryString = async (req, session) => {
       .skip((page - 1) * limit)
       .limit(limit)
       .session(session);
-    if (!threads || threads.length === 0) {
+    if (!threads) {
       throw createError(404, "No threads found");
     }
     const count = await Thread.countDocuments(query, { session });

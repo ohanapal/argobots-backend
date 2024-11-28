@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require("fs");
-const Files = require("../models/file");
 const { validationResult } = require("express-validator");
 const {
   createBotInstructions,
@@ -22,6 +21,7 @@ const {
 } = require("../services/company_services");
 const { createError } = require("../common/error");
 const { userType } = require("../utils/enums");
+const Files = require("../models/file");
 
 // * Function to create a bot/assistant
 const create = async (req, res, next) => {
@@ -317,8 +317,6 @@ const deleteFileFromBotByID = async (req, res, next) => {
   }
 };
 
-
-// * Function to upload a file to the bot by ID for external service
 const uploadFileToBotExternalService = async (req, res, next) => {
   const { name, size, file_id, bot_id } = req.body;
   // console.log({name, size, file_id, bot_id})
@@ -421,6 +419,7 @@ const deleteFileFromBotByIDExternalService = async (req, res, next) => {
     next(err);
   }
 };
+
 
 module.exports = {
   create,
