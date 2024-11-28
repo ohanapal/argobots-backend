@@ -14,7 +14,12 @@ const {
   deleteFileFromBot,
   countBot,
 } = require("../services/bot_services");
-const { checkMemory } = require("../services/file_services");
+const {
+  addFile,
+  checkMemory,
+  deleteFile,
+  getFile,
+} = require("../services/file_services");
 const {
   findCompanyByObject,
   findCompanyById,
@@ -319,6 +324,7 @@ const deleteFileFromBotByID = async (req, res, next) => {
 
 const uploadFileToBotExternalService = async (req, res, next) => {
   const { name, size, file_id, bot_id } = req.body;
+  console.log(req.body)
   // console.log({name, size, file_id, bot_id})
   const session = await mongoose.startSession();
   try {
@@ -330,7 +336,7 @@ const uploadFileToBotExternalService = async (req, res, next) => {
       await session.abortTransaction();
       return next(createError(400, "Bot not found"));
     }
-    // console.log("bot", bot)
+    console.log("bot", bot)
 
     const company_id = bot?.company_id;
     if (!company_id) {
@@ -343,6 +349,7 @@ const uploadFileToBotExternalService = async (req, res, next) => {
       await session.abortTransaction();
       return next(createError(400, "Company not found"));
     }
+    console.log("company", company)
 
     const package = company.package;
 
@@ -364,6 +371,7 @@ const uploadFileToBotExternalService = async (req, res, next) => {
       await session.abortTransaction();
       return next(createError(400, "Failed to add file to the bot"));
     }
+    console.log("new file", newFile)
 
     // Commit transaction if everything is successful
     await session.commitTransaction();
